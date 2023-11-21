@@ -17,7 +17,7 @@ factor = 0
 
 def my_function():
     if factor < 0.75:
- `       factor = factor + 0.05
+        factor = factor + 0.05
 
     print("Function called at:", time.strftime("%Y-%m-%d %H:%M:%S"))
 
