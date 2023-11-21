@@ -7,6 +7,27 @@
 import RPi.GPIO as GPIO
 import smbus
 from time import sleep
+
+import threading
+import time
+
+
+factor = 0
+
+
+def my_function():
+    if factor < 0.75:
+ `       factor = factor + 0.05
+
+    print("Function called at:", time.strftime("%Y-%m-%d %H:%M:%S"))
+
+
+def scheduler():
+    while True:
+        my_function()
+        time.sleep(1)
+
+
 # -------------------------- MPU SECTION -------------------------- #
 ##
 # MPU6050 Registers&Address
@@ -94,7 +115,14 @@ def scaled_value(value, old_min, old_max, new_min, new_max):
     return new_value
 
 
+def scaled_value_factor(value, old_min, old_max, new_min, new_max, speed_factor=1.0):
+    new_value_scaled = (value - old_min)*(new_max - new_min) / \
+        (old_max - old_min) + new_min
+
+    return (new_value_scaled + (old_max - new_value_scaled) * (1.0 - speed_factor))
+
 # -------------------------- PID SECTION -------------------------- #
+
 
 # pins
 pwmpin1 = 12  # front-rigt-ccw
@@ -173,6 +201,9 @@ if __name__ == "__main__":
         sleep(2)
         print("Motors are initialized")
 
+        scheduler_thread = threading.Thread(target=scheduler)
+        scheduler_thread.start()
+
         while True:
 
             acc_x = read_raw_data(ACCEL_XOUT)
@@ -208,25 +239,25 @@ if __name__ == "__main__":
             #         angle(value) # Rotate the servo motor using the sensor values
             sleep(0.08)
 
-            # pid_output_pitch = calc_pid(value_x, 90, 1.0, 2.0, 3.0, 0.08)
-            # pid_output_roll = calc_pid(value, 90, 1.0, 2.0, 3.0, 0.08)
+            pid_output_pitch = calc_pid(value_x, 90, 1.0, 2.0, 3.0, 0.08)
+            pid_output_roll = calc_pid(value, 90, 1.0, 2.0, 3.0, 0.08)
 
-            esc_1 = avr_throttle - pid_output_pitch + pid_output_roll
+            esc_1 = 7.5 - pid_output_pitch + pid_output_roll
 
-            esc_2 = avr_throttle + pid_output_pitch + pid_output_roll
+            esc_2 = 7.5 + pid_output_pitch + pid_output_roll
 
-            esc_3 = avr_throttle + pid_output_pitch - pid_output_roll
+            esc_3 = 7.5 + pid_output_pitch - pid_output_roll
 
-            esc_4 = avr_throttle - pid_output_pitch - pid_output_roll
+            esc_4 = 7.5 - pid_output_pitch - pid_output_roll
 
-            esc_1 = scaled_value(esc_1, -5000, 5000, 8, 10)
-            esc_2 = scaled_value(esc_2, -5000, 5000, 8, 10)
-            esc_3 = scaled_value(esc_3, -5000, 5000, 8, 10)
-            esc_4 = scaled_value(esc_4, -5000, 5000, 8, 10)
-            pi_pwm1.ChangeDutyCycle(5.1)
-            pi_pwm2.ChangeDutyCycle(5.1)
-            pi_pwm2.ChangeDutyCycle(5.1)
-            pi_pwm2.ChangeDutyCycle(5.1)
+            esc_1 = scaled_value_factor(esc_1, -5000, 5000, 5, 10, factor)
+            esc_2 = scaled_value_factor(esc_2, -5000, 5000, 5, 10, factor)
+            esc_3 = scaled_value_factor(esc_3, -5000, 5000, 5, 10, factor)
+            esc_4 = scaled_value_factor(esc_4, -5000, 5000, 5, 10, factor)
+            pi_pwm1.ChangeDutyCycle(5.3)
+            pi_pwm2.ChangeDutyCycle(5.3)
+            pi_pwm2.ChangeDutyCycle(5.3)
+            pi_pwm2.ChangeDutyCycle(5.3)
 
             # print("Enter duty cycle value: ")
             # duty_cycle_value = float(input(">>> "))
