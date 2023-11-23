@@ -193,74 +193,103 @@ def motors_cdc(duty_cycle_value):
     print("Current duty cycle is: ", duty_cycle_value)
 
 
+###########################################################
+
+
+
+def reading_raw_acc(dict_acc):
+    dict_acc['x'] =  read_raw_data(ACCEL_XOUT)
+    dict_acc['y'] =  read_raw_data(ACCEL_YOUT)
+    dict_acc['z'] =  read_raw_data(ACCEL_ZOUT)
+
+    return dict_acc
+
+
+def reading_raw_gyro(dict_gyro):
+    dict_gyro['x'] =  read_raw_data(GYRO_XOUT)
+    dict_gyro['y'] =  read_raw_data(GYRO_YOUT)
+    dict_gyro['z'] =  read_raw_data(GYRO_ZOUT)
+
+    return dict_gyro
+ 
+def conversation_data(dict_acc,dict_gyro,dict_angles):
+    Ax = dict_acc['x']/16384.0
+    Ay = dict_acc['y']/16384.0
+    Az = dict_acc['z']/16384.0
+
+    Gx = dict_gyro['x']/131.0
+    Gy = dict_gyro['y']/131.0
+    Gz = dict_gyro['z']/131.0
+
+    in_min = 1
+    in_max = -1
+    out_min = 0
+    out_max = 180
+
+    value_y = (Ay - in_min) * (out_max - out_min) / \
+                (in_max - in_min) + out_min
+
+    dict_angles['x_angel'] = int(value_y)
+
+
+    value_x = (Ax - in_min) * (out_max - out_min) / \
+                (in_max - in_min) + out_min
+    dict_angles['y_angel']  = int(value_x)
+    
+    return dict_angles
+
 # main
 if __name__ == "__main__":
 
+        dict_acc = {'x':0,'y':0,'z':0}
+        dict_gyro = {'x':0,'y':0,'z':0}
+        dict_angles = {'x_angel':0, 'y_angel':0}
+        time_sleep = 0.08
+
+        target_angel_x = 90
+        target_angel_y = 90
+
+        Kp = 1.0;Ki = 2.0 ;Kd = 3.0
+        avr_throttle = 7.5
+
+        esc_min_value = -5000; esc_max_value = 5000
+        scaled_esc_min_value = 5; scaled_esc_max_value = 10
+
         MPU_Init()
-
-   # print("Mpu init - ok \n\n")
-   # print("Duty Cycle Test \n\n")
-   # print("Init motors? y/n")
-    #answer = input(">>> ")
-    #if answer == "y":
-
         motors_init()
+
         sleep(2)
-        print("Motors are initialized")
+        #print("Motors are initialized")
 
         scheduler_thread = threading.Thread(target=scheduler)
         scheduler_thread.start()
-
+        
         while True:
 
-            acc_x = read_raw_data(ACCEL_XOUT)
-            acc_y = read_raw_data(ACCEL_YOUT)
-            acc_z = read_raw_data(ACCEL_ZOUT)
+            dict_acc = reading_raw_acc(dict_acc)
+            dict_gyro = reading_raw_acc(dict_gyro)
+            dict_angles = conversation_data(dict_angles)
 
-            # Read Gyroscope raw value
-            gyro_x = read_raw_data(GYRO_XOUT)
-            gyro_y = read_raw_data(GYRO_YOUT)
-            gyro_z = read_raw_data(GYRO_ZOUT)
+        
+            sleep(time_sleep)
 
-            Ax = acc_x/16384.0
-            Ay = acc_y/16384.0
-            Az = acc_z/16384.0
+            pid_output_pitch = calc_pid(dict_angles['x_angel'], target_angel_x, Kp, Ki, Kd, time_sleep)
+            pid_output_roll = calc_pid(dict_angles['y_angel'], target_angel_y, Kp, Ki, Kd, time_sleep)
 
-            Gx = gyro_x/131.0
-            Gy = gyro_y/131.0
-            Gz = gyro_z/131.0
 
-            in_min = 1
-            in_max = -1
-            out_min = 0
-            out_max = 180
+            esc_1 = avr_throttle - pid_output_pitch + pid_output_roll
 
-            # Convert accelerometer Y axis values from 0 to 180
-            value = (Ay - in_min) * (out_max - out_min) / \
-                (in_max - in_min) + out_min
+            esc_2 = avr_throttle + pid_output_pitch + pid_output_roll
 
-            value = int(value)
-            value_x = (Ax - in_min) * (out_max - out_min) / \
-                (in_max - in_min) + out_min
-            value_x = int(value_x)
-            #         angle(value) # Rotate the servo motor using the sensor values
-            sleep(0.08)
+            esc_3 = avr_throttle + pid_output_pitch - pid_output_roll
 
-            pid_output_pitch = calc_pid(value_x, 90, 1.0, 2.0, 3.0, 0.08)
-            pid_output_roll = calc_pid(value, 90, 1.0, 2.0, 3.0, 0.08)
-
-            esc_1 = 7.5 - pid_output_pitch + pid_output_roll
-
-            esc_2 = 7.5 + pid_output_pitch + pid_output_roll
-
-            esc_3 = 7.5 + pid_output_pitch - pid_output_roll
-
-            esc_4 = 7.5 - pid_output_pitch - pid_output_roll
+            esc_4 = avr_throttle - pid_output_pitch - pid_output_roll
 	    
-            esc_1 = scaled_value_(esc_1, -5000, 5000, 5, 10, factor)
-            esc_2 = scaled_value_(esc_2, -5000, 5000, 5, 10, factor)
-            esc_3 = scaled_value_(esc_3, -5000, 5000, 5, 10, factor)
-            esc_4 = scaled_value_(esc_4, -5000, 5000, 5, 10, factor)
+            esc_1 = scaled_value_(esc_1, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_2 = scaled_value_(esc_2, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_3 = scaled_value_(esc_3, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_4 = scaled_value_(esc_4, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+
             print("------------")
             print(esc_1)
             print(esc_2)
@@ -273,9 +302,7 @@ if __name__ == "__main__":
             pi_pwm2.ChangeDutyCycle(esc_3)
             pi_pwm2.ChangeDutyCycle(esc_4)
 
-            # print("Enter duty cycle value: ")
-            # duty_cycle_value = float(input(">>> "))
-            # motors_cdc(duty_cycle_value)
+           
 
    # else:
     #    print("Motors are not initialized")
