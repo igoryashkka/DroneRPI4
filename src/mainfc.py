@@ -12,20 +12,22 @@ import threading
 import time
 
 
-factor = 0
+factor = -0.05
 
 
 def my_function():
-    if factor < 0.75:
-        factor = factor + 0.05
-
-    print("Function called at:", time.strftime("%Y-%m-%d %H:%M:%S"))
+    # if factor < 0.75:
+    global factor
+    factor = factor + 0.001
+    print(factor)
+    return factor
+   # print("Function called at:", time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
 def scheduler():
     while True:
         my_function()
-        time.sleep(1)
+        time.sleep(0.6)
 
 
 # -------------------------- MPU SECTION -------------------------- #
@@ -108,6 +110,11 @@ def calc_pid(input_angle, set_angle, Kp, Ki, Kd, dt):
 # scaled_value function for adjusting esc-raw values
 ##
 
+def scaled_value_(value, old_min, old_max, new_min, new_max, scaling_factor=1.0):
+    new_value = (value - old_min) * (new_max - new_min) / \
+        (old_max - old_min) + new_min
+    scaled_new_value = new_value +  new_value * scaling_factor
+    return scaled_new_value
 
 def scaled_value(value, old_min, old_max, new_min, new_max):
     new_value = (value - old_min)*(new_max - new_min) / \
@@ -119,7 +126,7 @@ def scaled_value_factor(value, old_min, old_max, new_min, new_max, speed_factor=
     new_value_scaled = (value - old_min)*(new_max - new_min) / \
         (old_max - old_min) + new_min
 
-    return (new_value_scaled + (old_max - new_value_scaled) * (1.0 - speed_factor))
+    return new_value_scaled + speed_factor
 
 # -------------------------- PID SECTION -------------------------- #
 
@@ -189,13 +196,13 @@ def motors_cdc(duty_cycle_value):
 # main
 if __name__ == "__main__":
 
-    MPU_Init()
+        MPU_Init()
 
-    print("Mpu init - ok \n\n")
-    print("Duty Cycle Test \n\n")
-    print("Init motors? y/n")
-    answer = input(">>> ")
-    if answer == "y":
+   # print("Mpu init - ok \n\n")
+   # print("Duty Cycle Test \n\n")
+   # print("Init motors? y/n")
+    #answer = input(">>> ")
+    #if answer == "y":
 
         motors_init()
         sleep(2)
@@ -249,19 +256,26 @@ if __name__ == "__main__":
             esc_3 = 7.5 + pid_output_pitch - pid_output_roll
 
             esc_4 = 7.5 - pid_output_pitch - pid_output_roll
+	    
+            esc_1 = scaled_value_(esc_1, -5000, 5000, 5, 10, factor)
+            esc_2 = scaled_value_(esc_2, -5000, 5000, 5, 10, factor)
+            esc_3 = scaled_value_(esc_3, -5000, 5000, 5, 10, factor)
+            esc_4 = scaled_value_(esc_4, -5000, 5000, 5, 10, factor)
+            print("------------")
+            print(esc_1)
+            print(esc_2)
+            print(esc_3)
+            print(esc_4)
+            print("------------")
 
-            esc_1 = scaled_value_factor(esc_1, -5000, 5000, 5, 10, factor)
-            esc_2 = scaled_value_factor(esc_2, -5000, 5000, 5, 10, factor)
-            esc_3 = scaled_value_factor(esc_3, -5000, 5000, 5, 10, factor)
-            esc_4 = scaled_value_factor(esc_4, -5000, 5000, 5, 10, factor)
-            pi_pwm1.ChangeDutyCycle(5.3)
-            pi_pwm2.ChangeDutyCycle(5.3)
-            pi_pwm2.ChangeDutyCycle(5.3)
-            pi_pwm2.ChangeDutyCycle(5.3)
+            pi_pwm1.ChangeDutyCycle(esc_1)
+            pi_pwm2.ChangeDutyCycle(esc_2)
+            pi_pwm2.ChangeDutyCycle(esc_3)
+            pi_pwm2.ChangeDutyCycle(esc_4)
 
             # print("Enter duty cycle value: ")
             # duty_cycle_value = float(input(">>> "))
             # motors_cdc(duty_cycle_value)
 
-    else:
-        print("Motors are not initialized")
+   # else:
+    #    print("Motors are not initialized")
