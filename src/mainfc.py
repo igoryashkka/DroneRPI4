@@ -15,7 +15,7 @@ import time
 factor = -0.05
 
 
-def my_function():
+def scalling_thread():
     # if factor < 0.75:
     global factor
     factor = factor + 0.001
@@ -26,7 +26,7 @@ def my_function():
 
 def scheduler():
     while True:
-        my_function()
+        scalling_thread()
         time.sleep(0.6)
 
 
@@ -130,6 +130,27 @@ def scaled_value_factor(value, old_min, old_max, new_min, new_max, speed_factor=
 
 # -------------------------- PID SECTION -------------------------- #
 
+#duty_cycle_values = {'pi_pwm1': 0 , 'pi_pwm2': 0,'pi_pwm3': 0,'pi_pwm4': 0}
+
+def motors_cdc(duty_cycle_value):
+    pi_pwm1.ChangeDutyCycle(duty_cycle_value['pi_pwm1'])
+    pi_pwm2.ChangeDutyCycle(duty_cycle_value['pi_pwm2'])
+    pi_pwm3.ChangeDutyCycle(duty_cycle_value['pi_pwm3'])
+    pi_pwm4.ChangeDutyCycle(duty_cycle_value['pi_pwm4'])
+    #print("Current duty cycle is: ", duty_cycle_value)
+
+
+
+def motors_cdc_esc(esc_values):
+    pi_pwm1.ChangeDutyCycle( esc_values['esc_1'])
+    pi_pwm2.ChangeDutyCycle( esc_values['esc_2'])
+    pi_pwm2.ChangeDutyCycle( esc_values['esc_3'])
+    pi_pwm2.ChangeDutyCycle( esc_values['esc_4'])
+
+    #print("Current duty cycle is: ", esc_values)
+
+
+
 
 # pins
 pwmpin1 = 12  # front-rigt-ccw
@@ -156,27 +177,18 @@ pi_pwm4 = GPIO.PWM(pwmpin4, 50)
 # init motors
 
 
-def motors_init():
-
+def motors_init(duty_cycle_values):
+    duty_cycle_values = {'pi_pwm1': 10 , 'pi_pwm2': 10,'pi_pwm3': 10,'pi_pwm4': 10}
     print("init")
-    pi_pwm1.start(10)
-    pi_pwm2.start(10)
-    pi_pwm3.start(10)
-    pi_pwm4.start(10)
+    motors_cdc_esc(duty_cycle_values)
 
     sleep(2)
-
-    pi_pwm1.ChangeDutyCycle(5)
-    pi_pwm2.ChangeDutyCycle(5)
-    pi_pwm3.ChangeDutyCycle(5)
-    pi_pwm4.ChangeDutyCycle(5)
+    duty_cycle_values = {'pi_pwm1': 5 , 'pi_pwm2': 5,'pi_pwm3': 5,'pi_pwm4': 5}
+    motors_cdc_esc(duty_cycle_values)
 
     sleep(2)
-
-    pi_pwm1.ChangeDutyCycle(8)
-    pi_pwm2.ChangeDutyCycle(8)
-    pi_pwm3.ChangeDutyCycle(8)
-    pi_pwm4.ChangeDutyCycle(8)
+    duty_cycle_values = {'pi_pwm1': 8 , 'pi_pwm2': 8,'pi_pwm3': 8,'pi_pwm4': 8}
+    motors_cdc_esc(duty_cycle_values)
 
     sleep(3)
     print("END init")
@@ -184,17 +196,8 @@ def motors_init():
 # Change duty cycle of motors
 
 
-def motors_cdc(duty_cycle_value):
-
-    pi_pwm1.ChangeDutyCycle(duty_cycle_value)
-    pi_pwm2.ChangeDutyCycle(duty_cycle_value)
-    pi_pwm3.ChangeDutyCycle(duty_cycle_value)
-    pi_pwm4.ChangeDutyCycle(duty_cycle_value)
-    print("Current duty cycle is: ", duty_cycle_value)
-
-
 ###########################################################
-
+avr_throttle = 7.5
 
 
 def reading_raw_acc(dict_acc):
@@ -231,39 +234,70 @@ def conversation_data(dict_acc,dict_gyro,dict_angles):
 
     dict_angles['x_angel'] = int(value_y)
 
-
     value_x = (Ax - in_min) * (out_max - out_min) / \
                 (in_max - in_min) + out_min
+    
     dict_angles['y_angel']  = int(value_x)
     
     return dict_angles
 
-# main
+
+
+def esc_calc(esc_values,pids_output): 
+    esc_values['esc_1'] = avr_throttle - pids_output['pid_output_pitch'] + pids_output['pid_output_roll']
+    esc_values['esc_2'] = avr_throttle + pids_output['pid_output_pitch'] + pids_output['pid_output_roll']
+    esc_values['esc_3'] = avr_throttle + pids_output['pid_output_pitch'] - pids_output['pid_output_roll']
+    esc_values['esc_4'] = avr_throttle - pids_output['pid_output_pitch'] - pids_output['pid_output_roll']
+
+def debug_print_esc(esc_values):
+    print("------------")
+    print( esc_values['esc_1'])
+    print( esc_values['esc_2'])
+    print( esc_values['esc_3'])
+    print( esc_values['esc_4'])
+    print("------------")
+
+##########
+#Main point
+##########
 if __name__ == "__main__":
+########################################################
+#Declaration phase
+########################################################
 
         dict_acc = {'x':0,'y':0,'z':0}
         dict_gyro = {'x':0,'y':0,'z':0}
         dict_angles = {'x_angel':0, 'y_angel':0}
         time_sleep = 0.08
 
+        esc_values = {'esx_1':0,'esx_2':0,'esx_3':0,'esc_4':0 }
+
         target_angel_x = 90
         target_angel_y = 90
 
         Kp = 1.0;Ki = 2.0 ;Kd = 3.0
-        avr_throttle = 7.5
+
+        pids_output = {'pid_output_pitch':0, 'pid_output_roll':0}
+        duty_cycle_values = {'pi_pwm1': 0 , 'pi_pwm2': 0,'pi_pwm3': 0,'pi_pwm4': 0}
 
         esc_min_value = -5000; esc_max_value = 5000
         scaled_esc_min_value = 5; scaled_esc_max_value = 10
 
+########################################################
+#Initialization phase
+########################################################
+
         MPU_Init()
-        motors_init()
+        motors_init(duty_cycle_values)
 
         sleep(2)
-        #print("Motors are initialized")
+        
 
         scheduler_thread = threading.Thread(target=scheduler)
         scheduler_thread.start()
-        
+########################################################
+#Endles-loop phase
+########################################################       
         while True:
 
             dict_acc = reading_raw_acc(dict_acc)
@@ -276,31 +310,18 @@ if __name__ == "__main__":
             pid_output_pitch = calc_pid(dict_angles['x_angel'], target_angel_x, Kp, Ki, Kd, time_sleep)
             pid_output_roll = calc_pid(dict_angles['y_angel'], target_angel_y, Kp, Ki, Kd, time_sleep)
 
-
-            esc_1 = avr_throttle - pid_output_pitch + pid_output_roll
-
-            esc_2 = avr_throttle + pid_output_pitch + pid_output_roll
-
-            esc_3 = avr_throttle + pid_output_pitch - pid_output_roll
-
-            esc_4 = avr_throttle - pid_output_pitch - pid_output_roll
+            esc_values = esc_calc(esc_values,pids_output)
 	    
-            esc_1 = scaled_value_(esc_1, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
-            esc_2 = scaled_value_(esc_2, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
-            esc_3 = scaled_value_(esc_3, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
-            esc_4 = scaled_value_(esc_4, esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_values['esc_1'] = scaled_value_(esc_values['esc_1'], esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_values['esc_2'] = scaled_value_(esc_values['esc_2'], esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_values['esc_3'] = scaled_value_(esc_values['esc_3'], esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
+            esc_values['esc_4'] = scaled_value_(esc_values['esc_4'], esc_min_value, esc_max_value, scaled_esc_min_value, scaled_esc_max_value, factor)
 
-            print("------------")
-            print(esc_1)
-            print(esc_2)
-            print(esc_3)
-            print(esc_4)
-            print("------------")
+            debug_print_esc(esc_values)
 
-            pi_pwm1.ChangeDutyCycle(esc_1)
-            pi_pwm2.ChangeDutyCycle(esc_2)
-            pi_pwm2.ChangeDutyCycle(esc_3)
-            pi_pwm2.ChangeDutyCycle(esc_4)
+            #duty_cycle_values
+            motors_cdc_esc(esc_values)
+            
 
            
 
