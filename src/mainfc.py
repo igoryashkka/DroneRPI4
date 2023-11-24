@@ -307,8 +307,8 @@ if __name__ == "__main__":
         
             sleep(time_sleep)
 
-            pid_output_pitch = calc_pid(dict_angles['x_angel'], target_angel_x, Kp, Ki, Kd, time_sleep)
-            pid_output_roll = calc_pid(dict_angles['y_angel'], target_angel_y, Kp, Ki, Kd, time_sleep)
+            pids_output['pid_output_pitch'] = calc_pid(dict_angles['x_angel'], target_angel_x, Kp, Ki, Kd, time_sleep)
+            pids_output['pid_output_roll']  = calc_pid(dict_angles['y_angel'], target_angel_y, Kp, Ki, Kd, time_sleep)
 
             esc_values = esc_calc(esc_values,pids_output)
 	    
