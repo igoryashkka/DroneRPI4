@@ -14,7 +14,13 @@ import time
 
 factor = -0.05
 
-
+#####
+#####
+## SW-TASK [005] PART 5 && SW-TASK [006] : The same time running - PID and start "startuping" process of the drone
+## So, Here we do controling the factor
+## For 1st case - start up the drone , increase the factor , and stop increasing when dron gets the [standby_retention, or bigger just to up] value || NEED TO TEST ||
+#####
+#####
 def scalling_thread():
     # if factor < 0.75:
     global factor
@@ -185,9 +191,15 @@ def motors_init(duty_cycle_values):
     sleep(2)
     duty_cycle_values = {'pi_pwm1': 5 , 'pi_pwm2': 5,'pi_pwm3': 5,'pi_pwm4': 5}
     motors_cdc_esc(duty_cycle_values)
-
+#####
+#####
+## SW-TASK [005] PART 2 : initialization must ends with stand_bypower - value, aprx(5.2-5.3)
+## So after init props must run very slovly || NEED TO TEST ||
+#####
+#####
     sleep(2)
-    duty_cycle_values = {'pi_pwm1': 8 , 'pi_pwm2': 8,'pi_pwm3': 8,'pi_pwm4': 8}
+    stand_bypower = 5.2
+    duty_cycle_values = {'pi_pwm1':stand_bypower , 'pi_pwm2': stand_bypower,'pi_pwm3': stand_bypower,'pi_pwm4': stand_bypower}
     motors_cdc_esc(duty_cycle_values)
 
     sleep(3)
@@ -291,8 +303,13 @@ if __name__ == "__main__":
         motors_init(duty_cycle_values)
 
         sleep(2)
-        
-
+#####
+#####
+## SW-TASK [005] PART 5 : The same time running - PID and start "startuping" process of the drone
+##  So,Here need to scale with factor, factor will controlling in another thread || NEED TO TEST ||
+#####
+#####
+        ## Starting the Thread for contrling the factor
         scheduler_thread = threading.Thread(target=scheduler)
         scheduler_thread.start()
 ########################################################
